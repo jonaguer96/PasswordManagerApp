@@ -1,27 +1,32 @@
 import base64
 from cryptography.fernet import Fernet
 
+# PasswordManager class
 class PasswordManager:
     def __init__(self):
         self.key = None
         self.password_file = None
         self.password_dict = {}
 
+    # Generate key
     def generate_key(self, path):
         self.key = Fernet.generate_key()
         with open(path, 'wb') as file:
             file.write(self.key)
 
+    # Load key
     def load_key(self, path):
         with open(path, 'rb') as file:
             self.key = file.read()
 
+    # Generate password file
     def generate_password_file(self, path, initial_passwords=None):
         self.password_file = path
         if initial_passwords:
             for site, password in initial_passwords.items():
                 self.add_password(site, password)
 
+    # Load password file
     def load_password_file(self, path):
         self.password_file = path
         with open(path, 'r') as file:
@@ -34,21 +39,24 @@ class PasswordManager:
                     print(f"Error loading '{line.strip()}': {e}")
                     continue  
 
+    # Add password
     def add_password(self, site, password):
         if not self.key:
             print("Error: No key loaded.")
             return
 
+        # Encrypt the password
         self.password_dict[site] = password
         if self.password_file:
             with open(self.password_file, 'a') as file:
                 encrypted = Fernet(self.key).encrypt(password.encode())
                 file.write(f"{site}:{base64.b64encode(encrypted).decode()}\n")
 
+    # Get password
     def get_password(self, site):
         return self.password_dict.get(site, None)
     
-
+# Main function
 def main():
     password = {
         "google": "password123",
@@ -60,6 +68,7 @@ def main():
 
     pm = PasswordManager()
 
+    # Display the menu
     print(""""Welcome to Password Manager
     1. Generate Key
     2. Load Key"
@@ -71,9 +80,11 @@ def main():
 
     done = False
 
+    # Loop until the user is done
     while not done:
         choice = input("Enter choice: ")
 
+        # Perform the desired action
         if choice == '1':
             path = input("Enter path to save key: ")
             pm.generate_key(path)
@@ -98,5 +109,6 @@ def main():
         else:
             print("Invalid choice")
 
+# Run the main function
 if __name__ == '__main__':
     main()
