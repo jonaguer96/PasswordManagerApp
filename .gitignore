@@ -1,0 +1,3 @@
+# Ignore encryption keys (DO NOT commit your key file)
+
+key.key
