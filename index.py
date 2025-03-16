@@ -1,114 +1,142 @@
+import sqlite3
 import base64
+import os
 from cryptography.fernet import Fernet
+import getpass
 
-# PasswordManager class
 class PasswordManager:
-    def __init__(self):
+    def __init__(self, db_path="passwords.db"):
         self.key = None
-        self.password_file = None
-        self.password_dict = {}
+        self.db_path = db_path
+        self._init_db()
 
-    # Generate key
-    def generate_key(self, path):
+    def _init_db(self):
+        """Initialize SQLite database and create the passwords table if it doesn't exist."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS passwords (
+                    site TEXT PRIMARY KEY,
+                    encrypted_password TEXT NOT NULL
+                )
+            """)
+            conn.commit()
+
+    def generate_key(self, path="key.key"):
+        """Generate and store an encryption key locally."""
+        if os.path.exists(path):
+            print("Error: Key file already exists.")
+            return
         self.key = Fernet.generate_key()
         with open(path, 'wb') as file:
             file.write(self.key)
+        print("Key generated and saved.")
 
-    # Load key
-    def load_key(self, path):
+    def load_key(self, path="key.key"):
+        """Load the encryption key from a file."""
+        if not os.path.exists(path):
+            print("Error: Key file not found.")
+            return
         with open(path, 'rb') as file:
             self.key = file.read()
+        print("Key loaded successfully.")
 
-    # Generate password file
-    def generate_password_file(self, path, initial_passwords=None):
-        self.password_file = path
-        if initial_passwords:
-            for site, password in initial_passwords.items():
-                self.add_password(site, password)
-
-    # Load password file
-    def load_password_file(self, path):
-        self.password_file = path
-        with open(path, 'r') as file:
-            for line in file:
-                try:
-                    site, encrypted = line.strip().split(':')
-                    decrypted_password = Fernet(self.key).decrypt(base64.b64decode(encrypted)).decode()
-                    self.password_dict[site] = decrypted_password
-                except Exception as e:
-                    print(f"Error loading '{line.strip()}': {e}")
-                    continue  
-
-    # Add password
     def add_password(self, site, password):
+        """Encrypt and store a password in SQLite."""
         if not self.key:
             print("Error: No key loaded.")
             return
 
-        # Encrypt the password
-        self.password_dict[site] = password
-        if self.password_file:
-            with open(self.password_file, 'a') as file:
-                encrypted = Fernet(self.key).encrypt(password.encode())
-                file.write(f"{site}:{base64.b64encode(encrypted).decode()}\n")
+        encrypted_password = base64.b64encode(Fernet(self.key).encrypt(password.encode())).decode()
 
-    # Get password
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT OR REPLACE INTO passwords (site, encrypted_password) VALUES (?, ?)",
+                (site, encrypted_password)
+            )
+            conn.commit()
+        print(f"Password for {site} stored securely.")
+
     def get_password(self, site):
-        return self.password_dict.get(site, None)
-    
-# Main function
-def main():
-    password = {
-        "google": "password123",
-        "facebook": "password456",
-        "twitter": "password789",
-        "youtube": "password000",
-        "something": "password0001"
-    }
+        """Retrieve and decrypt a password from SQLite."""
+        if not self.key:
+            print("Error: No key loaded.")
+            return None
 
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT encrypted_password FROM passwords WHERE site = ?", (site,))
+            result = cursor.fetchone()
+
+        if result:
+            decrypted_password = Fernet(self.key).decrypt(base64.b64decode(result[0])).decode()
+            return decrypted_password
+        else:
+            print(f"Error: No password found for {site}.")
+            return None
+
+    def update_password(self, site, new_password):
+        """Update an existing password in SQLite."""
+        if not self.key:
+            print("Error: No key loaded.")
+            return
+
+        encrypted_password = base64.b64encode(Fernet(self.key).encrypt(new_password.encode())).decode()
+
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE passwords SET encrypted_password = ? WHERE site = ?", (encrypted_password, site))
+            conn.commit()
+        print(f"Password for {site} updated successfully.")
+
+    def delete_password(self, site):
+        """Delete a password from SQLite."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM passwords WHERE site = ?", (site,))
+            conn.commit()
+        print(f"Password for {site} deleted successfully.")
+
+# --- Example Usage ---
+def main():
     pm = PasswordManager()
 
-    # Display the menu
-    print(""""Welcome to Password Manager
-    1. Generate Key
-    2. Load Key"
-    3. Generate Password File
-    4. Load Password File"
-    5. Add Password"
-    6. Get Password
-    7. Exit""")
+    while True:
+        print("\n*** Password Manager ***")
+        print("1. Generate Key")
+        print("2. Load Key")
+        print("3. Add Password")
+        print("4. Get Password")
+        print("5. Update Password")
+        print("6. Delete Password")
+        print("7. Exit")
 
-    done = False
-
-    # Loop until the user is done
-    while not done:
         choice = input("Enter choice: ")
 
-        # Perform the desired action
         if choice == '1':
-            path = input("Enter path to save key: ")
-            pm.generate_key(path)
+            pm.generate_key()
         elif choice == '2':
-            path = input("Enter path to load key: ")
-            pm.load_key(path)
+            pm.load_key()
         elif choice == '3':
-            path = input("Enter path to save password file: ")
-            pm.generate_password_file(path, password)
+            site = input("Enter site: ")
+            password = getpass.getpass("Enter password: ")
+            pm.add_password(site, password)
         elif choice == '4':
-            path = input("Enter path to load password file: ")
-            pm.load_password_file(path)
+            site = input("Enter site: ")
+            print(f"Password for {site}: {pm.get_password(site)}")
         elif choice == '5':
             site = input("Enter site: ")
-            password = input("Enter password: ")
-            pm.add_password(site, password)
+            new_password = getpass.getpass("Enter new password: ")
+            pm.update_password(site, new_password)
         elif choice == '6':
-            site = input("Enter site: ")
-            print(f"Password for {site} is {pm.get_password(site)}")
+            site = input("Enter site to delete: ")
+            pm.delete_password(site)
         elif choice == '7':
-            done = True
+            print("Exiting...")
+            break
         else:
-            print("Invalid choice")
+            print("Invalid choice. Try again.")
 
-# Run the main function
 if __name__ == '__main__':
     main()
