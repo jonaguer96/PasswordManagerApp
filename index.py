@@ -118,9 +118,8 @@ class PasswordManager:
             self.key = file.read()
         print("Key loaded successfully.")
 
-    def add_password(self, site, password):
+    def add_password(self, user_id, site, password):
         """Encrypt and store a password in SQLite."""
-        #TO DO: Input of user id to reference in the database with so the proper user accesses its password.
         if not self.key:
             print("Error: No key loaded.")
             return
@@ -130,13 +129,13 @@ class PasswordManager:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT OR REPLACE INTO passwords (site, encrypted_password) VALUES (?, ?)",
-                (site, encrypted_password)
+                "INSERT OR REPLACE INTO passwords (user_id, site, encrypted_password) VALUES (?, ?, ?)",
+                (user_id, site, encrypted_password)
             )
             conn.commit()
         print(f"Password for {site} stored securely.")
 
-    def get_password(self, site):
+    def get_password(self, user_id, site):
         #TO DO: Input of user id to reference in the database with so the proper user accesses its password.
         """Retrieve and decrypt a password from SQLite."""
         if not self.key:
@@ -145,7 +144,7 @@ class PasswordManager:
 
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT encrypted_password FROM passwords WHERE site = ?", (site,))
+            cursor.execute("SELECT encrypted_password FROM passwords WHERE site = ? AND user_id = ?", (site, user_id))
             result = cursor.fetchone()
 
         if result:
@@ -221,7 +220,6 @@ def main():
         else: 
             print("Invalid choice. Try again.")
 
-    #TO DO: If log in successful, execute this logic.
     while True:
         print("\n*** Password Manager ***")
         print("1. Generate Key")
@@ -241,14 +239,14 @@ def main():
         elif choice == '3':
             site = input("Enter site: ")
             password = getpass.getpass("Enter password: ")
-            pm.add_password(site, password)
+            pm.add_password(current_user_id, site, password)
         elif choice == '4':
             site = input("Enter site: ")
-            print(f"Password for {site}: {pm.get_password(site)}")
+            print(f"Password for {site}: {pm.get_password(current_user_id, site)}")
         elif choice == '5':
             site = input("Enter site: ")
             new_password = getpass.getpass("Enter new password: ")
-            pm.update_password(site, new_password)
+            pm.update_password(current_user_id, site, new_password)
         elif choice == '6':
             site = input("Enter site to delete: ")
             pm.delete_password(site)
