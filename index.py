@@ -154,7 +154,7 @@ class PasswordManager:
             print(f"Error: No password found for {site}.")
             return None
 
-    def update_password(self, site, new_password):
+    def update_password(self, user_id, site, new_password):
         #TO DO: Input of user id to reference in the database with so the proper user accesses its password.
         """Update an existing password in SQLite."""
         if not self.key:
@@ -165,16 +165,16 @@ class PasswordManager:
 
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute("UPDATE passwords SET encrypted_password = ? WHERE site = ?", (encrypted_password, site))
+            cursor.execute("UPDATE passwords SET encrypted_password = ? WHERE site = ? AND user_id = ?", (encrypted_password, site, user_id))
             conn.commit()
         print(f"Password for {site} updated successfully.")
 
-    def delete_password(self, site):
+    def delete_password(self, user_id, site):
         #TO DO: Input of user id to reference in the database with so the proper user accesses its password.
         """Delete a password from SQLite."""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM passwords WHERE site = ?", (site,))
+            cursor.execute("DELETE FROM passwords WHERE site = ? AND user_id = ?", (site, user_id))
             conn.commit()
         print(f"Password for {site} deleted successfully.")
 
@@ -233,24 +233,31 @@ def main():
         choice = input("Enter choice: ")
 
         if choice == '1':
+            # Generate Key
             pm.generate_key()
         elif choice == '2':
+            # Load Key
             pm.load_key()
         elif choice == '3':
+            # Add Password
             site = input("Enter site: ")
             password = getpass.getpass("Enter password: ")
             pm.add_password(current_user_id, site, password)
         elif choice == '4':
+            # Get Password
             site = input("Enter site: ")
             print(f"Password for {site}: {pm.get_password(current_user_id, site)}")
         elif choice == '5':
+            # Update Password
             site = input("Enter site: ")
             new_password = getpass.getpass("Enter new password: ")
             pm.update_password(current_user_id, site, new_password)
         elif choice == '6':
+            # Delete Password
             site = input("Enter site to delete: ")
-            pm.delete_password(site)
+            pm.delete_password(current_user_id, site)
         elif choice == '7':
+            # Exit
             print("Exiting...")
             break
         else:
