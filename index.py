@@ -8,10 +8,17 @@ import getpass
 
 class PasswordManager:
     def __init__(self, db_path="passwords.db"):
+        self.forbidden_words = self._load_blocklist()
         self.key = None
         self.db_path = db_path
         self._init_db()
-
+    def _load_blocklist(self):
+        """Load forbidden words from the blocklist file."""
+        if not os.path.exists('rockyou.txt'):
+            print("Warning: rockyou.txt not found. No words will be blocked")
+            return []
+        with open('rockyou.txt','r', encoding='latin-1') as f:
+            return [line.strip().lower() for line in f if line.strip()]
     def _init_db(self):
         """Initialize SQLite database and create the users and passwords tables if they don't exist."""
         with sqlite3.connect(self.db_path) as conn:
@@ -41,6 +48,19 @@ class PasswordManager:
 
             conn.commit()
 
+    def is_password_valid(self, password):
+        for word in self.forbidden_words:
+            if password.lower() == word: #Exact match
+                print(f"Password cannot contain common or insecure words like '{word}'.")
+                return False
+        if len(password) < 8:
+            print("Password must be at least 8 characters long!")
+            return False
+        if len(password) > 64:
+            print("Password must contain less than 64 characters")
+            return False 
+        return True
+
     def add_user(self, new_username):
 
         with sqlite3.connect(self.db_path) as conn:
@@ -56,7 +76,19 @@ class PasswordManager:
                 return False
             #Otherwise, ask for username, password, and create a random salt to store with them.
             else:
-                password = getpass.getpass("Enter a password: ")
+                while True:
+                    print("Here are some tips to make your password even better:")
+                    print("*Don't use dictionary words used on Wikipedia")
+                    print("*Avoid having special characters at the end of the password")
+                    print("*Consider using more than 1 symbol")
+                    print("*Consider using one or more uppercase letters")
+                    print("*Make sure its at least 8 characters in length!")
+                    print("*Spaces are allowed! Consider using a long passphrase with spaces\n")
+                    password = getpass.getpass("Enter a password: ")
+                    if self.is_password_valid(password):
+                        break
+                    else:
+                        print("Please try again.\n")
                 salt = os.urandom(16)
                 hashed_password = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000)
                 salt_encoded = base64.b64encode(salt).decode()
@@ -74,8 +106,8 @@ class PasswordManager:
             cursor = conn.cursor()
 
         #Check if there is a username like that in the database. 
-        cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
-        user = cursor.fetchone()   
+            cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+            user = cursor.fetchone()   
         if user is not None: 
             salt_encoded = user[2]
             hash_encoded = user[3]
