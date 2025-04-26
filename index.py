@@ -155,7 +155,8 @@ class PasswordManager:
         if not self.key:
             print("Error: No key loaded.")
             return
-
+        if self.is_password_valid(password) == False:
+            print("Warning: The password you entered is weak. Consider improving it for better security.")
         encrypted_password = base64.b64encode(Fernet(self.key).encrypt(password.encode())).decode()
 
         with sqlite3.connect(self.db_path) as conn:
