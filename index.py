@@ -5,6 +5,7 @@ import base64
 import os
 from cryptography.fernet import Fernet
 import getpass
+import time
 
 class PasswordManager:
     def __init__(self, db_path="passwords.db"):
@@ -89,6 +90,7 @@ class PasswordManager:
                         break
                     else:
                         print("Please try again.\n")
+                start = time.perf_counter()
                 salt = os.urandom(16)
                 hashed_password = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000)
                 salt_encoded = base64.b64encode(salt).decode()
@@ -98,6 +100,8 @@ class PasswordManager:
                     (new_username, salt_encoded, hash_encoded)
                 )
                 conn.commit()
+                end = time.perf_counter()
+                print(f"Time taken: {end - start:.6f} seconds")
             print("User registered successfully.")
             return True
 
