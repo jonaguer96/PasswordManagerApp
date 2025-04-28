@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Encryption Key Missing{% endblock %}
+{% block content %}
+<div class="alert alert-danger">
+  <h2>Encryption Key Missing</h2>
+  <p>The encryption key has not been loaded. Password operations are unavailable.</p>
+  <p>Please click below to load the encryption key (admin action).</p>
+
+  <form method="post">
+    <button type="submit" class="btn btn-primary">Load Encryption Key</button>
+  </form>
+
+  <a href="{{ url_for('dashboard') }}" class="btn btn-secondary mt-3">Return to Dashboard</a>
+</div>
+{% endblock %}
