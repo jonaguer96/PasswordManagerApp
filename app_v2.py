@@ -37,9 +37,6 @@ def register():
         username = request.form['username'].strip()
         password = request.form['password'].strip()
 
-        if not username.isalnum() or not password.isalnum():
-            flash("Username and Password must be alphanumeric.", "danger")
-            return redirect(url_for('register'))
 
         # Save original getpass
         original_getpass = getpass.getpass
